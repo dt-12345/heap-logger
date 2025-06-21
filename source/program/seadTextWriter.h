@@ -82,6 +82,9 @@ public:
     float getHeight() const { return mViewport->getSizeY(); }
     float getWidth() const { return mViewport->getSizeX(); }
 
+    float getHalfHeight() const { return mViewport->getHalfSizeY(); }
+    float getHalfWidth() const { return mViewport->getHalfSizeX(); }
+
     void scaleBy(float scale_factor) { mScale *= scale_factor; }
 
 private:

@@ -2,7 +2,7 @@
 
 #include "common.hpp"
 
-#define EXL_MODULE_NAME "writer"
+#define EXL_MODULE_NAME "heap"
 #define EXL_MODULE_NAME_LEN 8
 
 #define EXL_DEBUG

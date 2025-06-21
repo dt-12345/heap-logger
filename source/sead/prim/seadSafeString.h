@@ -133,8 +133,8 @@ public:
     bool startsWith(const SafeStringBase<T>& prefix) const;
     bool endsWith(const SafeStringBase<T>& suffix) const;
 
-    static const T cNullChar;
-    static const T cLineBreakChar;
+    static const T cNullChar = '\0';
+    static const T cLineBreakChar = '\n';
     static const SafeStringBase cEmptyString;
     static const s32 cMaximumLength = 0x80000;
 
