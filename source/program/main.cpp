@@ -5,12 +5,14 @@
 #include "nn/fs.h"
 #include "nn/hid.h"
 #include "nn/os/os_tick.hpp"
+#include "nn/os.h"
 
 #include <container/seadPtrArray.h>
 #include <heap/seadHeap.h>
 
 sead::PtrArray<sead::Heap>* gRootHeaps = nullptr;
 sead::Heap** gVirtualAddressHeapPtr = nullptr;
+nn::os::MutexType* gHeapTreeMutex = nullptr;
 
 void PrintInfo(const sead::Heap* heap, sead::TextWriter& writer, int indent = 0) {
     if (writer.getCursor().y < -writer.getHalfHeight() + 5.f) {
@@ -125,11 +127,12 @@ void drawTool2DSuper(agl::lyr::Layer* layer, const agl::lyr::RenderInfo& info) {
 
     if (gInitializedSDCard && gIsOutput && gVirtualAddressHeapPtr && *gVirtualAddressHeapPtr) {
         FileWriter<0xa00000> file_writer(*gVirtualAddressHeapPtr);
-
+        
+        nn::os::LockMutex(gHeapTreeMutex);
         file_writer.write("VirtualAddressHeaps:\n");
         // this heap is used for file resources and there's one heap per file loaded and that's simply way too many
         DumpHeap(*gVirtualAddressHeapPtr, file_writer, 0, false);
-
+        
         if (gRootHeaps && !gRootHeaps->isEmpty()) {
             file_writer.write("RootHeaps:\n");
             for (int i = 0; i < 4; ++i) {
@@ -140,6 +143,7 @@ void drawTool2DSuper(agl::lyr::Layer* layer, const agl::lyr::RenderInfo& info) {
         } else {
             file_writer.write("RootHeaps: []\n");
         }
+        nn::os::UnlockMutex(gHeapTreeMutex);
 
         char path[0x80];
         s32 size = nn::util::SNPrintf(path, sizeof(path), "sd:/HeapLog_%lld_%016llx.yml", gFrameCounter, nn::os::GetSystemTick().GetInt64Value());
@@ -163,6 +167,7 @@ void drawTool2DSuper(agl::lyr::Layer* layer, const agl::lyr::RenderInfo& info) {
 
     writer.printDropShadow("Heap Usage:\n");
     
+    nn::os::LockMutex(gHeapTreeMutex);
     if (gVirtualAddressHeapPtr && *gVirtualAddressHeapPtr)
         PrintInfo(*gVirtualAddressHeapPtr, writer);
 
@@ -171,6 +176,7 @@ void drawTool2DSuper(agl::lyr::Layer* layer, const agl::lyr::RenderInfo& info) {
         if (root)
             VisitChildren(root, writer);
     }
+    nn::os::UnlockMutex(gHeapTreeMutex);
 }
 
 HOOK_DEFINE_TRAMPOLINE(MountSD) {
@@ -191,11 +197,16 @@ static const u64 sVirtualAddressHeapOffsets[6] = {
     0x0463be68, 0x04719388, 0x047212b8, 0x04713798, 0x04707bf0, 0x04716c68
 };
 
+static const u64 sHeapTreeCSOffsets[6] = {
+    0x0463be80, 0x047193a0, 0x047212d0, 0x047137b0, 0x04707c08, 0x04716c80
+};
+
 extern "C" void exl_main(void* x0, void* x1) {
     initDebugDrawer();
 
     gRootHeaps = reinterpret_cast<sead::PtrArray<sead::Heap>*>(exl::util::modules::GetTargetOffset(sRootHeapOffsets[gDrawMgr.version()]));
     gVirtualAddressHeapPtr = reinterpret_cast<sead::Heap**>(exl::util::modules::GetTargetOffset(sVirtualAddressHeapOffsets[gDrawMgr.version()]));
+    gHeapTreeMutex = reinterpret_cast<nn::os::MutexType*>(exl::util::modules::GetTargetOffset(sHeapTreeCSOffsets[gDrawMgr.version()]));
 
     MountSD::InstallAtFuncPtr(nnMain);
 }
